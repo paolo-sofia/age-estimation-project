@@ -1,7 +1,3 @@
-from os import system
-
-system("apt install python3-opencv dlib libopencv-core-dev libopencv-dnn-dev opencv-data python3-opencv-apps")
-
 import PIL.Image
 import numpy as np
 import streamlit as st
