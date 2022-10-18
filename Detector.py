@@ -72,7 +72,7 @@ class FaceDetector:
 
         eyes = self.eye_cascade.detectMultiScale(gray, 1.05, 6, minSize=(30, 30))
         # roi_gray = gray[y:(y + h), x:(x + w)]
-        if len(eyes) < 2:
+        if eyes.shape[0] < 2:
             print("Eyes not detected, skipping image alignement")
             return img
         left_eye, right_eye = FaceDetector.detect_left_and_right_eye(eyes)
