@@ -70,8 +70,11 @@ class FaceDetector:
 
         gray = cvtColor(img, COLOR_BGR2GRAY)
 
-        eyes = self.eye_cascade.detectMultiScale(gray, 1.1, 4)
+        eyes = self.eye_cascade.detectMultiScale(gray, 1.05, 6, minSize=(30, 30))
         # roi_gray = gray[y:(y + h), x:(x + w)]
+        if len(eyes) < 2:
+            print("Eyes not detected, skipping image alignement")
+            return img
         left_eye, right_eye = FaceDetector.detect_left_and_right_eye(eyes)
 
         left_eye_x, left_eye_y = FaceDetector.get_eye_coordinates(left_eye)
@@ -85,13 +88,10 @@ class FaceDetector:
         # Width and height of the image
         height, width = img.shape[:2]
         # Calculating a center point of the image
-        # Integer division "//"" ensures that we receive whole numbers
         center = (width // 2, height // 2)
-        # Defining a matrix M and calling
-        # cv2.getRotationMatrix2D method
+        # Defining a matrix M and calling cv2.getRotationMatrix2D method
         rotation_matrix = getRotationMatrix2D(center, angle, 1.0)
-        # Applying the rotation to our image using the
-        # cv2.warpAffine method
+        # Applying the rotation to our image using the cv2.warpAffine method
         rotated = warpAffine(img, rotation_matrix, (width, height))
         return rotated
 
@@ -158,6 +158,7 @@ class FaceDetector:
             roi = faces['roi']
             # rect = rectangle(roi[0], roi[1], roi[0] + roi[2], roi[1] + roi[3])
             # face = self.sp(img_array, rect)
+            print(faces['img'].shape)
             images.append(self.align_face(faces['img']))
             bboxes.append(roi)
         return self.images_preprocessing(images), bboxes

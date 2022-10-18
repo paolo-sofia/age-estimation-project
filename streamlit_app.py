@@ -10,6 +10,7 @@ from Detector import FaceDetector
 COLORS = ('red', 'green', 'blue', 'yellow', 'cyano', 'orange')
 
 
+@st.cache(hash_funcs={FaceDetector: hash})
 def load_model():
     face_detector = FaceDetector()
     return face_detector
@@ -19,12 +20,13 @@ def predict_from_image(img: np.ndarray):
     # -------------------- MODEL PREDICT --------------------
     model = load_model()
     faces, bboxes = model.fit_transform(img)
+    predictions = []
 
     if len(faces) == 0:
         st.error("No face detected, select another image")
         st.image(np.array(img))
     else:
-        st.success("Faces detected, processing image")
+        st.success(f" {len(faces)} faces detected, processing image")
 
         draw_image = PIL.Image.fromarray(img)
         draw = Draw(draw_image)
@@ -33,13 +35,17 @@ def predict_from_image(img: np.ndarray):
             face = convert_to_tensor(face, dtype=np.float32)
             face = tf.expand_dims(face, axis=0)
 
-            pred = np.argmax(model.net.predict(face), axis=1) + 1
+            predictions.append(np.argmax(model.net.predict(face), axis=1)[0] + 1)
 
             shape = [(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])]
             draw.rectangle(shape, fill=None, outline=COLORS[i], width=5)
-            st.write(f"Age predicted of face outlined in {COLORS[i]} is {pred[0]} years old")
 
         st.image(np.array(draw_image))
+
+        for i, pred in enumerate(predictions):
+            st.markdown(
+                f'# Age predicted of face outlined in {COLORS[i]} is <span style="color:{COLORS[i]};">**{pred} years old**</span>',
+                unsafe_allow_html=True)
 
 
 if __name__ == '__main__':
