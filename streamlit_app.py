@@ -35,7 +35,11 @@ def predict_from_image(img: np.ndarray):
             face = convert_to_tensor(face, dtype=np.float32)
             face = tf.expand_dims(face, axis=0)
 
-            predictions.append(np.argmax(model.net.predict(face), axis=1)[0] + 1)
+            pred = model.net.predict(face)
+            print(f"PRED - {pred.shape}")
+            pred_age = np.argmax(pred, axis=1)[0] + 1
+            # appends to the list the age and the raw result from the model (probability of correct prediction)
+            predictions.append((pred_age, pred[0][pred_age - 1]))
 
             shape = [(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])]
             draw.rectangle(shape, fill=None, outline=COLORS[i], width=5)
@@ -44,7 +48,8 @@ def predict_from_image(img: np.ndarray):
 
         for i, pred in enumerate(predictions):
             st.markdown(
-                f'# Age predicted of face outlined in {COLORS[i]} is <span style="color:{COLORS[i]};">**{pred} years old**</span>',
+                f'## Age predicted of face outlined in {COLORS[i]} is <span style="color:{COLORS[i]};">**{pred[0]} '
+                f'years old**</span> with a model confidence of {round(pred[1] * 100, 2)} %',
                 unsafe_allow_html=True)
 
 
