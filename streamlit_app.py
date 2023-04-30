@@ -1,56 +1,70 @@
-import PIL.Image
+from typing import List, Tuple
+
 import numpy as np
+import pandas as pd
+import PIL.Image
 import streamlit as st
 import tensorflow as tf
 from PIL.ImageDraw import Draw
 from tensorflow.python.framework.ops import convert_to_tensor
 
-from Detector import FaceDetector
+from detector import FaceDetector
 
-COLORS = ('red', 'green', 'blue', 'yellow', 'cyano', 'orange')
+tf.config.experimental.set_visible_devices(tf.config.list_physical_devices('CPU'))
+COLORS: Tuple[str] = ('red', 'green', 'blue', 'yellow', 'cyano', 'orange')
 
 
-@st.cache(hash_funcs={FaceDetector: hash})
-def load_model():
-    face_detector = FaceDetector()
+@st.cache_resource()
+def load_model() -> FaceDetector:
+    """
+    Loads the face detector model to be used for inference
+    :return:
+    """
+    face_detector: FaceDetector = FaceDetector()
     return face_detector
 
 
-def predict_from_image(img: np.ndarray):
-    # -------------------- MODEL PREDICT --------------------
-    model = load_model()
+def predict_from_image(img: np.ndarray) -> None:
+    model: FaceDetector = load_model()
+
     faces, bboxes = model.fit_transform(img)
-    predictions = []
+    predictions: List[Tuple[int, float]] = []
 
     if len(faces) == 0:
         st.error("No face detected, select another image")
         st.image(np.array(img))
-    else:
-        st.success(f" {len(faces)} faces detected, processing image")
+        return
 
-        draw_image = PIL.Image.fromarray(img)
-        draw = Draw(draw_image)
+    st.success(f" {len(faces)} faces detected, processing image")
 
-        for i, (face, bbox) in enumerate(zip(faces, bboxes)):
-            face = convert_to_tensor(face, dtype=np.float32)
-            face = tf.expand_dims(face, axis=0)
+    draw_image = PIL.Image.fromarray(img)
+    draw = Draw(draw_image)
 
-            pred = model.net.predict(face)
-            print(f"PRED - {pred.shape}")
-            pred_age = np.argmax(pred, axis=1)[0] + 1
-            # appends to the list the age and the raw result from the model (probability of correct prediction)
-            predictions.append((pred_age, pred[0][pred_age - 1]))
+    for i, (face, bbox) in enumerate(zip(faces, bboxes)):
+        face = convert_to_tensor(face, dtype=np.float32)
+        face = tf.expand_dims(face, axis=0)
 
-            shape = [(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])]
-            draw.rectangle(shape, fill=None, outline=COLORS[i], width=5)
+        pred = model.net.predict(face)
+        # pred_age = np.argmax(pred, axis=1)[0] + 1
 
-        st.image(np.array(draw_image))
+        shape = [(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])]
+        draw.rectangle(shape, fill=None, outline=COLORS[i], width=5)
+        df = pd.DataFrame(list(zip((pred[0] * 100), list(range(1, pred[0].shape[0] + 1)))),
+                          columns=['Confidence', 'Age'])
+        df = df.sort_values('Confidence', ascending=False).iloc[:5, :].reset_index(drop=True)
+        predictions.append(df)
 
-        for i, pred in enumerate(predictions):
-            st.markdown(
-                f'## Age predicted of face outlined in {COLORS[i]} is <span style="color:{COLORS[i]};">**{pred[0]} '
-                f'years old**</span> with a model confidence of {round(pred[1] * 100, 2)} %',
-                unsafe_allow_html=True)
+    st.image(np.array(draw_image))
+
+    for i, pred in enumerate(predictions):
+        row: pd.Series = pred.loc[0]
+        st.markdown(
+            f'## Age predicted of face outlined in {COLORS[i]} is <span style="color:{COLORS[i]};">**{row.Age} '
+            f'years old**</span> with a model confidence of {round(row.Confidence, 2)} %',
+            unsafe_allow_html=True)
+        st.markdown(f'### Most 5 confident age predictions for {COLORS[i]} face')
+        st.dataframe(pred, use_container_width=True)
+    return
 
 
 if __name__ == '__main__':
