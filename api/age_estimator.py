@@ -16,7 +16,7 @@ CONFIG_FILE: str = join(EXT_ROOT, 'model', "deploy.prototxt")
 
 
 class AgeEstimator:
-    __slots__ = 'clahe', 'eye_cascade', 'size', 'net', 'detector', 'min_confidence', 'COLORS'
+    __slots__ = 'clahe', 'eye_cascade', 'size', 'net', 'detector', 'min_confidence'
     COLORS: Tuple[str] = ('red', 'green', 'blue', 'yellow', 'cyano', 'orange')
 
     def __init__(self, min_confidence: float = 0.3):
@@ -170,9 +170,9 @@ class AgeEstimator:
             df = pd.DataFrame(list(zip((pred[0] * 100), list(range(1, pred[0].shape[0] + 1)))),
                               columns=['Confidence', 'Age'])
             df = df.sort_values('Confidence', ascending=False).iloc[:5, :].reset_index(drop=True)
-            predictions.append((df, self.COLORS[i]))
+            predictions.append((df.to_json(), self.COLORS[i]))
 
-        return {'image': np.ndarray(draw_image), 'prediction': predictions}
+        return {'image': np.asarray(draw_image).astype(np.uint8), 'prediction': predictions}
 
     @classmethod
     def detect_left_and_right_eye(cls, eyes: List[Tuple[int, int, int, int]]) -> \

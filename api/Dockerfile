@@ -4,10 +4,10 @@ WORKDIR /app
 COPY api/requirements.txt /app/requirements.txt
 RUN pip install -r /app/requirements.txt
 
-COPY api/model /app/model
-COPY api/age_estimator.py /app/age_estimator.py
+COPY api/model /app/api/model
+COPY api/age_estimator.py /app/api/age_estimator.py
 COPY api/main.py /app/main.py
-COPY api/__init__.py /app/__init__.py
+COPY api/__init__.py /app/api/__init__.py
 
 EXPOSE 8000
 

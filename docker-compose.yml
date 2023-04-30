@@ -1,0 +1,24 @@
+version: '3.4'
+services:
+  streamlit:
+    build:
+      dockerfile: web_ui/Dockerfile
+      context: ./
+    hostname: web_ui
+    ports:
+      - "8501:8501"
+    depends_on:
+      - model_api
+    healthcheck:
+      test: curl --fail http://model_api:8000/predict/health || exit 1
+      interval: 5s
+      retries: 5
+      start_period: 5s
+      timeout: 5s
+  model_api:
+    build:
+      dockerfile: api/Dockerfile
+      context: ./
+    hostname: model_api
+    ports:
+      - "8000:8000"
