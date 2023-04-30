@@ -3,16 +3,21 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import pandas as pd
 import PIL.Image
 import tensorflow as tf
+from PIL.ImageDraw import Draw
+from tensorflow.python.framework.ops import convert_to_tensor
 
+tf.config.experimental.set_visible_devices(tf.config.list_physical_devices('CPU'))
 EXT_ROOT: str = join(dirname(abspath(__file__)))
 MODEL_FILE: str = join(EXT_ROOT, 'model', 'res10_300x300_ssd_iter_140000_fp16.caffemodel')
 CONFIG_FILE: str = join(EXT_ROOT, 'model', "deploy.prototxt")
 
 
-class FaceDetector:
-    __slots__ = 'clahe', 'eye_cascade', 'size', 'net', 'detector', 'min_confidence'
+class AgeEstimator:
+    __slots__ = 'clahe', 'eye_cascade', 'size', 'net', 'detector', 'min_confidence', 'COLORS'
+    COLORS: Tuple[str] = ('red', 'green', 'blue', 'yellow', 'cyano', 'orange')
 
     def __init__(self, min_confidence: float = 0.3):
         self.clahe: cv2.CLAHE = cv2.createCLAHE(2, (3, 3))
@@ -72,10 +77,10 @@ class FaceDetector:
         if eyes.shape[0] < 2:
             print("Eyes not detected, skipping image alignement")
             return img
-        left_eye, right_eye = FaceDetector.detect_left_and_right_eye(eyes)
+        left_eye, right_eye = AgeEstimator.detect_left_and_right_eye(eyes)
 
-        left_eye_x, left_eye_y = FaceDetector.get_eye_coordinates(left_eye)
-        right_eye_x, right_eye_y = FaceDetector.get_eye_coordinates(right_eye)
+        left_eye_x, left_eye_y = AgeEstimator.get_eye_coordinates(left_eye)
+        right_eye_x, right_eye_y = AgeEstimator.get_eye_coordinates(right_eye)
 
         delta_x: int = right_eye_x - left_eye_x
         delta_y: int = right_eye_y - left_eye_y
@@ -137,6 +142,36 @@ class FaceDetector:
                 images.append(aligned_face)
                 bboxes.append(roi)
         return self.images_preprocessing(images), bboxes
+
+    def predict_from_image(self, img: np.ndarray) -> Optional[Tuple[np.ndarray, List[pd.DataFrame]]]:
+        """Predicts the age based on the image passed as parameter.
+        :param img: the image to predict
+        :return: a json containing the image with faces bboxes draw and a list containing predictions for each detected
+        face and the color used for drawing the bounding box
+        """
+        faces, bboxes = self.fit_transform(img)
+        predictions: List[Tuple[pd.DataFrame, str]] = []
+
+        if len(faces) == 0:
+            {'image': img, 'prediction': predictions}
+
+        draw_image = PIL.Image.fromarray(img)
+        draw = Draw(draw_image)
+
+        for i, (face, bbox) in enumerate(zip(faces, bboxes)):
+            face = convert_to_tensor(face, dtype=np.float32)
+            face = tf.expand_dims(face, axis=0)
+
+            pred = self.net.predict(face)
+
+            shape = [(bbox[0], bbox[1]), (bbox[0] + bbox[2], bbox[1] + bbox[3])]
+            draw.rectangle(shape, fill=None, outline=self.COLORS[i], width=5)
+            df = pd.DataFrame(list(zip((pred[0] * 100), list(range(1, pred[0].shape[0] + 1)))),
+                              columns=['Confidence', 'Age'])
+            df = df.sort_values('Confidence', ascending=False).iloc[:5, :].reset_index(drop=True)
+            predictions.append((df, self.COLORS[i]))
+
+        return {'image': np.ndarray(draw_image), 'prediction': predictions}
 
     @classmethod
     def detect_left_and_right_eye(cls, eyes: List[Tuple[int, int, int, int]]) -> \
