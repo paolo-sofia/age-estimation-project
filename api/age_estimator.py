@@ -21,7 +21,8 @@ class AgeEstimator:
 
     def __init__(self, min_confidence: float = 0.3):
         self.clahe: cv2.CLAHE = cv2.createCLAHE(2, (3, 3))
-        self.eye_cascade: cv2.CascadeClassifier = cv2.CascadeClassifier(join(EXT_ROOT, 'model', "haarcascade_eye.xml"))
+        self.eye_cascade: cv2.CascadeClassifier = cv2.CascadeClassifier(
+            join(EXT_ROOT, 'model', "haarcascade_eye.xml"))
         self.size: Tuple[int, int, int] = (100, 100, 3)
         self.net: tf.keras.engine.functional.Functional = tf.keras.models.load_model(
             join(EXT_ROOT, 'model', 'model.h5'), compile=False)

@@ -1,14 +1,15 @@
-FROM python:3.11-bullseye AS BASE
+FROM python:3.11.2-slim-bullseye AS BASE
+
 WORKDIR /app
 
-COPY api/requirements.txt /app/requirements.txt
-RUN pip install -r /app/requirements.txt
+COPY web_ui/requirements.txt /app/web_ui/requirements.txt
+RUN pip install -r /app/web_ui/requirements.txt
 
-COPY api/model /app/model
-COPY api/age_estimator.py /app/age_estimator.py
-COPY api/main.py /app/main.py
-COPY api/__init__.py /app/__init__.py
+COPY web_ui/main.py /app/main.py
+COPY web_ui/__init__.py /app/web_ui/__init__.py
 
-EXPOSE 8000
+EXPOSE 8501
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
+
+ENTRYPOINT ["streamlit", "run", "/app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
