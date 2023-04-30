@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Dict, List
 
@@ -14,9 +15,14 @@ HEADERS = {
     "accept": "application/json",
     "Content-Type": "application/json",
 }
+MAX_WIDTH: int = 2000
+MAX_HEIGHT: int = 2000
 
 
 def show_results(response: Dict[str, Any]) -> None:
+    """Shows the predictions results to the ui
+    :param response: the api response got from the model"""
+    logging.error('SHOWING RESULTS\n\n\n')
     img: np.ndarray = response['image']
     pred: List[pd.DataFrame, str] = response['prediction']
 
@@ -26,11 +32,14 @@ def show_results(response: Dict[str, Any]) -> None:
         n_faces: int = len(pred)
         face_string: str = 'face' if n_faces == 1 else 'faces'
         st.success(f"{n_faces} {face_string} detected, here's the result for each one of them")
-        st.image(img)
+        if img is not None:
+            st.image(np.asarray(json.loads(img)))
         for i, (df, color) in enumerate(pred, start=1):
-            st.markdown(f'## Detected face # {i} outlined in {color}. Preicted age estimation -> {df.loc[0].Age}')
+            df = pd.DataFrame.from_dict(json.loads(df)).reset_index(drop=True)
+            st.markdown(f'### Detected face # {i} outlined in {color}. Predicted age estimation -> {df.loc[0].Age}')
             st.markdown(f'#### Top 5 predictions for face # {i}')
             st.dataframe(df)
+            st.markdown('---')
     return
 
 
@@ -41,18 +50,34 @@ def send_api_request(img: np.ndarray) -> pd.DataFrame:
     :param img:
     :return:
     """
-    response: requests.Response = requests.post(url="http://spark_api:8000/predict/", json={'image': img},
+    encoded_image: str = json.dumps(img.tolist())
+    response: requests.Response = requests.post(url="http://model_api:8000/predict/",
+                                                json={'image': encoded_image},
                                                 headers=HEADERS, verify=False)
     if response.ok:
-        st.success("Successfully computed data")
-        try:
-            return pd.DataFrame().from_dict(response.json())
-        except Exception as e:
-            logger.error(e)
-            return pd.DataFrame()
+        return response.json()
     else:
         st.error(response.text)
-        return pd.DataFrame()
+        return {'image': None, 'prediction': []}
+
+
+def resize_image_if_too_big(img: np.ndarray) -> np.ndarray:
+    w, h, c = img.shape
+
+    if w < MAX_WIDTH and h < MAX_HEIGHT:
+        return img
+
+    aspect_ratio: float = w / h
+
+    if w > h:
+        new_width: int = MAX_WIDTH
+        new_height: int = round(new_width // aspect_ratio)
+    else:
+        new_height: int = MAX_HEIGHT
+        new_width: int = round(new_height * aspect_ratio)
+    logging.error(img.shape)
+    logging.error(f'{new_width} {new_height}')
+    return np.array(PIL.Image.fromarray(img).resize((new_width, new_height)))
 
 
 if __name__ == '__main__':
@@ -71,5 +96,9 @@ if __name__ == '__main__':
     for image_to_predict in images_to_predict:
         image = PIL.Image.open(image_to_predict)
         image = np.array(image)
+
+        image = resize_image_if_too_big(image)
+
+        logging.error(f"image shape {image.shape}")
         prediction = send_api_request(image)
         show_results(prediction)

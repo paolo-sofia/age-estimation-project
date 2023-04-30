@@ -1,3 +1,4 @@
+import json
 import logging
 from functools import lru_cache
 
@@ -18,19 +19,22 @@ def load_model() -> AgeEstimator:
 
 
 class Image(BaseModel):
-    image: np.ndarray
+    image: str
 
     class Config:
         arbitrary_types_allowed = True
 
 
+model = load_model()
 app = FastAPI()
 
 
 @app.post('/predict/')
 def get_data(inputs: Image):
-    model = load_model()
-    return model.predict_from_image(inputs.image)
+    image = np.asarray(json.loads(inputs.image)).astype(np.uint8)
+    response = model.predict_from_image(image)
+    response['image'] = json.dumps(response['image'].tolist())
+    return response
 
 
 @app.get('/health')
