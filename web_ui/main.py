@@ -26,7 +26,8 @@ def show_results(response: Dict[str, Any]) -> None:
         n_faces: int = len(pred)
         face_string: str = 'face' if n_faces == 1 else 'faces'
         st.success(f"{n_faces} {face_string} detected, here's the result for each one of them")
-        st.image(img)
+        if img is not None:
+            st.image(img)
         for i, (df, color) in enumerate(pred, start=1):
             st.markdown(f'## Detected face # {i} outlined in {color}. Preicted age estimation -> {df.loc[0].Age}')
             st.markdown(f'#### Top 5 predictions for face # {i}')
@@ -41,18 +42,14 @@ def send_api_request(img: np.ndarray) -> pd.DataFrame:
     :param img:
     :return:
     """
-    response: requests.Response = requests.post(url="http://spark_api:8000/predict/", json={'image': img},
+    response: requests.Response = requests.post(url="http://model_api:8000/predict/", json={'image': img},
                                                 headers=HEADERS, verify=False)
     if response.ok:
         st.success("Successfully computed data")
-        try:
-            return pd.DataFrame().from_dict(response.json())
-        except Exception as e:
-            logger.error(e)
-            return pd.DataFrame()
+        return response
     else:
         st.error(response.text)
-        return pd.DataFrame()
+        return {'image': None, 'prediction': []}
 
 
 if __name__ == '__main__':
