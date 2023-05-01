@@ -5,18 +5,22 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 import PIL.Image
-import requests
 import streamlit as st
+
+from api.age_estimator import AgeEstimator
 
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
-HEADERS = {
-    "accept": "application/json",
-    "Content-Type": "application/json",
-}
 MAX_WIDTH: int = 2000
 MAX_HEIGHT: int = 2000
+
+st.set_page_config(page_title='Age Estimator', page_icon=':boy:', layout='wide')
+
+
+@st.cache_resource
+def load_model() -> AgeEstimator:
+    return AgeEstimator()
 
 
 def show_results(response: Dict[str, Any]) -> None:
@@ -35,32 +39,14 @@ def show_results(response: Dict[str, Any]) -> None:
             st.success(f"{n_faces} {face_string} detected, here's the result for each one of them",
                        icon='✅')
         if img is not None:
-            st.image(np.asarray(json.loads(img)))
+            st.image(img)
         for i, (df, color) in enumerate(pred, start=1):
             df = pd.DataFrame.from_dict(json.loads(df)).reset_index(drop=True)
             st.markdown(f'### Detected face outlined in {color}, predicted age: *{df.loc[0].Age}*')
-            st.markdown(f'##### Top 5 predictions for face # {i}')
+            st.markdown('##### Top 5 predictions')
             st.dataframe(df)
-            st.markdown('---')
+            st.write('---')
     return
-
-
-def send_api_request(img: np.ndarray) -> pd.DataFrame:
-    """
-    Sends the api requests with the given inputs and returns the response data formatted as a pandas dataframe. If
-    response is an error, returns an empty dataframe
-    :param img:
-    :return:
-    """
-    encoded_image: str = json.dumps(img.tolist())
-    response: requests.Response = requests.post(url="http://model_api:8000/predict/",
-                                                json={'image': encoded_image},
-                                                headers=HEADERS, verify=False)
-    if response.ok:
-        return response.json()
-    else:
-        st.error(response.text)
-        return {'image': None, 'prediction': []}
 
 
 def resize_image_if_too_big(img: np.ndarray) -> np.ndarray:
@@ -81,6 +67,7 @@ def resize_image_if_too_big(img: np.ndarray) -> np.ndarray:
 
 
 if __name__ == '__main__':
+    model: AgeEstimator = load_model()
     with st.container():
         st.title('Age Estimator UI')
         st.subheader('In this page you can play with the age estimator app, load a picture from the disk or take a '
@@ -108,8 +95,6 @@ if __name__ == '__main__':
     for image_to_predict in images_to_predict:
         image = PIL.Image.open(image_to_predict)
         image = np.array(image)
-
         image = resize_image_if_too_big(image)
-
-        prediction = send_api_request(image)
+        prediction = model.predict_from_image(image)
         show_results(prediction)
