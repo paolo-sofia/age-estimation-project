@@ -1,4 +1,4 @@
-## Age EStimation project
+## Age Estimation project
 
 This is a small project in which using deep learning, we train a network that predicts the age of a person based on the
 face
@@ -97,6 +97,8 @@ Data augmentation operations used:
 - random horizontal flip
 - random brightness, addition of random brightness, with max\_delta value = 0.2
 - random saturation, with lower bound = 0.75 and upper bound = 1
+
+![](data/pictures/dataset.png)
 
 ## **Training**
 
